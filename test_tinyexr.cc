@@ -1,6 +1,6 @@
-#include <cstdlib>
-#include <cstdio>
-#include <vector>
+#include <stdlib.h>
+#include <stdio.h>
+//#include <vector>
 
 // Uncomment if you want to use system provided zlib.
 // #define TINYEXR_USE_MINIZ (0)

@@ -66,6 +66,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef TINYEXR_H_
 #define TINYEXR_H_
 
+
 //
 //
 //   Do this:
@@ -83,7 +84,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
 #include <stddef.h>  // for size_t
-#include <stdint.h>  // guess stdint.h is available(C99)
+#include "msvc_stdint.h"  // guess stdint.h is available(C99)
 
 #ifdef __cplusplus
 extern "C" {
@@ -500,26 +501,28 @@ extern int LoadEXRFromMemory(float **out_rgba, int *width, int *height,
 #ifndef TINYEXR_IMPLEMENTATION_DEIFNED
 #define TINYEXR_IMPLEMENTATION_DEIFNED
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <sstream>
+#include "jo_stdcpp.h"
+
+//#include <algorithm>
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+//#include <sstream>
 
 // #include <iostream> // debug
 
-#include <limits>
-#include <string>
-#include <vector>
+//#include <limits>
+//#include <string>
+//#include <vector>
 
 #if __cplusplus > 199711L
 // C++11
 #include <cstdint>
 
 #if TINYEXR_USE_THREAD
-#include <atomic>
-#include <thread>
+//#include <atomic>
+//#include <thread>
 #endif
 
 #endif  // __cplusplus > 199711L
@@ -7022,7 +7025,8 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename,
 //  return bint.c[0] == 1;
 //}
 
-static void SetErrorMessage(const std::string &msg, const char **err) {
+
+static void SetErrorMessage(const jo_string &msg, const char **err) {
   if (err) {
 #ifdef _WIN32
     (*err) = _strdup(msg.c_str());
@@ -7276,7 +7280,7 @@ static FP16 float_to_half_full(FP32 f) {
 
 #endif
 
-static const char *ReadString(std::string *s, const char *ptr, size_t len) {
+static const char *ReadString(jo_string *s, const char *ptr, size_t len) {
   // Read untile NULL(\0).
   const char *p = ptr;
   const char *q = ptr;
@@ -7285,24 +7289,24 @@ static const char *ReadString(std::string *s, const char *ptr, size_t len) {
   }
 
   if (size_t(q - ptr) >= len) {
-    (*s) = std::string();
+    (*s) = jo_string();
     return NULL;
   }
 
-  (*s) = std::string(p, q);
+  (*s) = jo_string(p, q);
 
   return q + 1;  // skip '\0'
 }
 
-static bool ReadAttribute(std::string *name, std::string *type,
-                          std::vector<unsigned char> *data, size_t *marker_size,
+static bool ReadAttribute(jo_string *name, jo_string *type,
+                          jo_vector<unsigned char> *data, size_t *marker_size,
                           const char *marker, size_t size) {
   size_t name_len = strnlen(marker, size);
   if (name_len == size) {
     // String does not have a terminating character.
     return false;
   }
-  *name = std::string(marker, name_len);
+  *name = jo_string(marker, name_len);
 
   marker += name_len + 1;
   size -= name_len + 1;
@@ -7311,7 +7315,7 @@ static bool ReadAttribute(std::string *name, std::string *type,
   if (type_len == size) {
     return false;
   }
-  *type = std::string(marker, type_len);
+  *type = jo_string(marker, type_len);
 
   marker += type_len + 1;
   size -= type_len + 1;
@@ -7356,11 +7360,11 @@ static bool ReadAttribute(std::string *name, std::string *type,
   return true;
 }
 
-static void WriteAttributeToMemory(std::vector<unsigned char> *out,
+static void WriteAttributeToMemory(jo_vector<unsigned char> *out,
                                    const char *name, const char *type,
                                    const unsigned char *data, int len) {
-  out->insert(out->end(), name, name + strlen(name) + 1);
-  out->insert(out->end(), type, type + strlen(type) + 1);
+  out->insert(out->end(), (unsigned char*)name, (unsigned char*)name + strlen(name) + 1);
+  out->insert(out->end(), (unsigned char*)type, (unsigned char*)type + strlen(type) + 1);
 
   int outLen = len;
   tinyexr::swap4(reinterpret_cast<unsigned int *>(&outLen));
@@ -7370,7 +7374,7 @@ static void WriteAttributeToMemory(std::vector<unsigned char> *out,
 }
 
 typedef struct {
-  std::string name;  // less than 255 bytes long
+  jo_string name;  // less than 255 bytes long
   int pixel_type;
   int x_sampling;
   int y_sampling;
@@ -7379,8 +7383,8 @@ typedef struct {
 } ChannelInfo;
 
 typedef struct {
-  std::vector<tinyexr::ChannelInfo> channels;
-  std::vector<EXRAttribute> attributes;
+  jo_vector<tinyexr::ChannelInfo> channels;
+  jo_vector<EXRAttribute> attributes;
 
   int data_window[4];
   int line_order;
@@ -7432,8 +7436,8 @@ typedef struct {
   }
 } HeaderInfo;
 
-static bool ReadChannelInfo(std::vector<ChannelInfo> &channels,
-                            const std::vector<unsigned char> &data) {
+static bool ReadChannelInfo(jo_vector<ChannelInfo> &channels,
+                            const jo_vector<unsigned char> &data) {
   const char *p = reinterpret_cast<const char *>(&data.at(0));
 
   for (;;) {
@@ -7479,8 +7483,8 @@ static bool ReadChannelInfo(std::vector<ChannelInfo> &channels,
   return true;
 }
 
-static void WriteChannelInfo(std::vector<unsigned char> &data,
-                             const std::vector<ChannelInfo> &channels) {
+static void WriteChannelInfo(jo_vector<unsigned char> &data,
+                             const jo_vector<ChannelInfo> &channels) {
   size_t sz = 0;
 
   // Calculate total size.
@@ -7524,7 +7528,7 @@ static void WriteChannelInfo(std::vector<unsigned char> &data,
 static void CompressZip(unsigned char *dst,
                         tinyexr::tinyexr_uint64 &compressedSize,
                         const unsigned char *src, unsigned long src_size) {
-  std::vector<unsigned char> tmpBuf(src_size);
+  jo_vector<unsigned char> tmpBuf(src_size);
 
   //
   // Apply EXR-specific? postprocess. Grabbed from OpenEXR's
@@ -7610,7 +7614,7 @@ static bool DecompressZip(unsigned char *dst,
     memcpy(dst, src, src_size);
     return true;
   }
-  std::vector<unsigned char> tmpBuf(*uncompressed_size);
+  jo_vector<unsigned char> tmpBuf(*uncompressed_size);
 
 #if TINYEXR_USE_MINIZ
   int ret =
@@ -7789,7 +7793,7 @@ static int rleUncompress(int inLength, int maxLength, const signed char in[],
 static void CompressRle(unsigned char *dst,
                         tinyexr::tinyexr_uint64 &compressedSize,
                         const unsigned char *src, unsigned long src_size) {
-  std::vector<unsigned char> tmpBuf(src_size);
+  jo_vector<unsigned char> tmpBuf(src_size);
 
   //
   // Apply EXR-specific? postprocess. Grabbed from OpenEXR's
@@ -7868,7 +7872,7 @@ static bool DecompressRle(unsigned char *dst,
     return false;
   }
 
-  std::vector<unsigned char> tmpBuf(uncompressed_size);
+  jo_vector<unsigned char> tmpBuf(uncompressed_size);
 
   int ret = rleUncompress(static_cast<int>(src_size),
                           static_cast<int>(uncompressed_size),
@@ -8416,8 +8420,8 @@ static void hufBuildEncTable(
   //    for all array entries.
   //
 
-  std::vector<int> hlink(HUF_ENCSIZE);
-  std::vector<long long *> fHeap(HUF_ENCSIZE);
+  jo_vector<int> hlink(HUF_ENCSIZE);
+  jo_vector<long long *> fHeap(HUF_ENCSIZE);
 
   *im = 0;
 
@@ -8474,9 +8478,9 @@ static void hufBuildEncTable(
   // of the tree) are incremented by one.
   //
 
-  std::make_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
+  jo_make_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
 
-  std::vector<long long> scode(HUF_ENCSIZE);
+  jo_vector<long long> scode(HUF_ENCSIZE);
   memset(scode.data(), 0, sizeof(long long) * HUF_ENCSIZE);
 
   while (nf > 1) {
@@ -8487,14 +8491,14 @@ static void hufBuildEncTable(
     //
 
     int mm = fHeap[0] - frq;
-    std::pop_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
+    jo_pop_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
     --nf;
 
     int m = fHeap[0] - frq;
-    std::pop_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
+    jo_pop_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
 
     frq[m] += frq[mm];
-    std::push_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
+    jo_push_heap(&fHeap[0], &fHeap[nf], FHeapCompare());
 
     //
     // The entries in scode are linked into lists with the
@@ -8982,13 +8986,13 @@ static bool hufDecode(const long long *hcode,  // i : encoding table
         //
 
         lc -= pl.len;
-        // std::cout << "lit = " << pl.lit << std::endl;
-        // std::cout << "rlc = " << rlc << std::endl;
-        // std::cout << "c = " << c << std::endl;
-        // std::cout << "lc = " << lc << std::endl;
-        // std::cout << "in = " << in << std::endl;
-        // std::cout << "out = " << out << std::endl;
-        // std::cout << "oe = " << oe << std::endl;
+        // std::cout << "lit = " << pl.lit << jo_endl;
+        // std::cout << "rlc = " << rlc << jo_endl;
+        // std::cout << "c = " << c << jo_endl;
+        // std::cout << "lc = " << lc << jo_endl;
+        // std::cout << "in = " << in << jo_endl;
+        // std::cout << "out = " << out << jo_endl;
+        // std::cout << "oe = " << oe << jo_endl;
         if (!getCode(pl.lit, rlc, c, lc, in, ie, out, outb, oe)) {
           return false;
         }
@@ -9064,7 +9068,7 @@ static bool hufDecode(const long long *hcode,  // i : encoding table
   return true;
 }
 
-static void countFrequencies(std::vector<long long> &freq,
+static void countFrequencies(jo_vector<long long> &freq,
                              const unsigned short data[/*n*/], int n) {
   for (int i = 0; i < HUF_ENCSIZE; ++i) freq[i] = 0;
 
@@ -9095,7 +9099,7 @@ static int hufCompress(const unsigned short raw[], int nRaw,
                        char compressed[]) {
   if (nRaw == 0) return 0;
 
-  std::vector<long long> freq(HUF_ENCSIZE);
+  jo_vector<long long> freq(HUF_ENCSIZE);
 
   countFrequencies(freq, raw, nRaw);
 
@@ -9122,7 +9126,7 @@ static int hufCompress(const unsigned short raw[], int nRaw,
 }
 
 static bool hufUncompress(const char compressed[], int nCompressed,
-                          std::vector<unsigned short> *raw) {
+                          jo_vector<unsigned short> *raw) {
   if (nCompressed == 0) {
     if (raw->size() != 0) return false;
 
@@ -9151,8 +9155,8 @@ static bool hufUncompress(const char compressed[], int nCompressed,
   //}
   // else
   {
-    std::vector<long long> freq(HUF_ENCSIZE);
-    std::vector<HufDec> hdec(HUF_DECSIZE);
+    jo_vector<long long> freq(HUF_ENCSIZE);
+    jo_vector<HufDec> hdec(HUF_DECSIZE);
 
     hufClearDecTable(&hdec.at(0));
 
@@ -9253,9 +9257,9 @@ static void applyLut(const unsigned short lut[USHORT_RANGE],
 
 static bool CompressPiz(unsigned char *outPtr, unsigned int *outSize,
                         const unsigned char *inPtr, size_t inSize,
-                        const std::vector<ChannelInfo> &channelInfo,
+                        const jo_vector<ChannelInfo> &channelInfo,
                         int data_width, int num_lines) {
-  std::vector<unsigned char> bitmap(BITMAP_SIZE);
+  jo_vector<unsigned char> bitmap(BITMAP_SIZE);
   unsigned short minNonZero;
   unsigned short maxNonZero;
 
@@ -9266,9 +9270,9 @@ static bool CompressPiz(unsigned char *outPtr, unsigned int *outSize,
 #endif
 
   // Assume `inSize` is multiple of 2 or 4.
-  std::vector<unsigned short> tmpBuffer(inSize / sizeof(unsigned short));
+  jo_vector<unsigned short> tmpBuffer(inSize / sizeof(unsigned short));
 
-  std::vector<PIZChannelData> channelData(channelInfo.size());
+  jo_vector<PIZChannelData> channelData(channelInfo.size());
   unsigned short *tmpBufferEnd = &tmpBuffer.at(0);
 
   for (size_t c = 0; c < channelData.size(); c++) {
@@ -9309,7 +9313,7 @@ static bool CompressPiz(unsigned char *outPtr, unsigned int *outSize,
   bitmapFromData(&tmpBuffer.at(0), static_cast<int>(tmpBuffer.size()),
                  bitmap.data(), minNonZero, maxNonZero);
 
-  std::vector<unsigned short> lut(USHORT_RANGE);
+  jo_vector<unsigned short> lut(USHORT_RANGE);
   unsigned short maxValue = forwardLutFromBitmap(bitmap.data(), lut.data());
   applyLut(lut.data(), &tmpBuffer.at(0), static_cast<int>(tmpBuffer.size()));
 
@@ -9381,7 +9385,7 @@ static bool DecompressPiz(unsigned char *outPtr, const unsigned char *inPtr,
     return true;
   }
 
-  std::vector<unsigned char> bitmap(BITMAP_SIZE);
+  jo_vector<unsigned char> bitmap(BITMAP_SIZE);
   unsigned short minNonZero;
   unsigned short maxNonZero;
 
@@ -9410,7 +9414,7 @@ static bool DecompressPiz(unsigned char *outPtr, const unsigned char *inPtr,
     ptr += maxNonZero - minNonZero + 1;
   }
 
-  std::vector<unsigned short> lut(USHORT_RANGE);
+  jo_vector<unsigned short> lut(USHORT_RANGE);
   memset(lut.data(), 0, sizeof(unsigned short) * USHORT_RANGE);
   unsigned short maxValue = reverseLutFromBitmap(bitmap.data(), lut.data());
 
@@ -9428,14 +9432,14 @@ static bool DecompressPiz(unsigned char *outPtr, const unsigned char *inPtr,
     return false;
   }
 
-  std::vector<unsigned short> tmpBuffer(tmpBufSize);
+  jo_vector<unsigned short> tmpBuffer(tmpBufSize);
   hufUncompress(reinterpret_cast<const char *>(ptr), length, &tmpBuffer);
 
   //
   // Wavelet decoding
   //
 
-  std::vector<PIZChannelData> channelData(static_cast<size_t>(num_channels));
+  jo_vector<PIZChannelData> channelData(static_cast<size_t>(num_channels));
 
   unsigned short *tmpBufferEnd = &tmpBuffer.at(0);
 
@@ -9593,7 +9597,7 @@ static bool DecompressZfp(float *dst, int dst_width, int dst_num_lines,
   }
 
   size_t buf_size = zfp_stream_maximum_size(zfp, field);
-  std::vector<unsigned char> buf(buf_size);
+  jo_vector<unsigned char> buf(buf_size);
   memcpy(&buf.at(0), src, src_size);
 
   bitstream *stream = stream_open(&buf.at(0), buf_size);
@@ -9626,7 +9630,7 @@ static bool DecompressZfp(float *dst, int dst_width, int dst_num_lines,
 }
 
 // Assume pixel format is FLOAT for all channels.
-bool CompressZfp(std::vector<unsigned char> *outBuf, unsigned int *outSize,
+bool CompressZfp(jo_vector<unsigned char> *outBuf, unsigned int *outSize,
                  const float *inPtr, int width, int num_lines, int num_channels,
                  const ZFPCompressionParam &param) {
   zfp_stream *zfp = NULL;
@@ -9705,7 +9709,7 @@ static bool DecodePixelData(/* out */ unsigned char **out_images,
                             size_t num_attributes,
                             const EXRAttribute *attributes, size_t num_channels,
                             const EXRChannelInfo *channels,
-                            const std::vector<size_t> &channel_offset_list) {
+                            const jo_vector<size_t> &channel_offset_list) {
   if (compression_type == TINYEXR_COMPRESSIONTYPE_PIZ) {  // PIZ
 #if TINYEXR_USE_PIZ
     if ((width == 0) || (num_lines == 0) || (pixel_data_size == 0)) {
@@ -9714,7 +9718,7 @@ static bool DecodePixelData(/* out */ unsigned char **out_images,
     }
 
     // Allocate original data size.
-    std::vector<unsigned char> outBuf(static_cast<size_t>(
+    jo_vector<unsigned char> outBuf(static_cast<size_t>(
         static_cast<size_t>(width * num_lines) * pixel_data_size));
     size_t tmpBufLen = outBuf.size();
 
@@ -9853,7 +9857,7 @@ static bool DecodePixelData(/* out */ unsigned char **out_images,
   } else if (compression_type == TINYEXR_COMPRESSIONTYPE_ZIPS ||
              compression_type == TINYEXR_COMPRESSIONTYPE_ZIP) {
     // Allocate original data size.
-    std::vector<unsigned char> outBuf(static_cast<size_t>(width) *
+    jo_vector<unsigned char> outBuf(static_cast<size_t>(width) *
                                       static_cast<size_t>(num_lines) *
                                       pixel_data_size);
 
@@ -9987,7 +9991,7 @@ static bool DecodePixelData(/* out */ unsigned char **out_images,
     }
   } else if (compression_type == TINYEXR_COMPRESSIONTYPE_RLE) {
     // Allocate original data size.
-    std::vector<unsigned char> outBuf(static_cast<size_t>(width) *
+    jo_vector<unsigned char> outBuf(static_cast<size_t>(width) *
                                       static_cast<size_t>(num_lines) *
                                       pixel_data_size);
 
@@ -10129,7 +10133,7 @@ static bool DecodePixelData(/* out */ unsigned char **out_images,
     }
 
     // Allocate original data size.
-    std::vector<unsigned char> outBuf(static_cast<size_t>(width) *
+    jo_vector<unsigned char> outBuf(static_cast<size_t>(width) *
                                       static_cast<size_t>(num_lines) *
                                       pixel_data_size);
 
@@ -10322,7 +10326,7 @@ static bool DecodeTiledPixelData(
     int tile_size_y, size_t pixel_data_size, size_t num_attributes,
     const EXRAttribute *attributes, size_t num_channels,
     const EXRChannelInfo *channels,
-    const std::vector<size_t> &channel_offset_list) {
+    const jo_vector<size_t> &channel_offset_list) {
   assert(tile_offset_x * tile_size_x < data_width);
   assert(tile_offset_y * tile_size_y < data_height);
 
@@ -10347,7 +10351,7 @@ static bool DecodeTiledPixelData(
                          num_channels, channels, channel_offset_list);
 }
 
-static bool ComputeChannelLayout(std::vector<size_t> *channel_offset_list,
+static bool ComputeChannelLayout(jo_vector<size_t> *channel_offset_list,
                                  int *pixel_data_size, size_t *channel_offset,
                                  int num_channels,
                                  const EXRChannelInfo *channels) {
@@ -10419,7 +10423,7 @@ static unsigned char **AllocateImage(int num_channels,
 }
 
 static int ParseEXRHeader(HeaderInfo *info, bool *empty_header,
-                          const EXRVersion *version, std::string *err,
+                          const EXRVersion *version, jo_string *err,
                           const unsigned char *buf, size_t size) {
   const char *marker = reinterpret_cast<const char *>(&buf[0]);
 
@@ -10491,9 +10495,9 @@ static int ParseEXRHeader(HeaderInfo *info, bool *empty_header,
       break;
     }
 
-    std::string attr_name;
-    std::string attr_type;
-    std::vector<unsigned char> data;
+    jo_string attr_name;
+    jo_string attr_type;
+    jo_vector<unsigned char> data;
     size_t marker_size;
     if (!tinyexr::ReadAttribute(&attr_name, &attr_type, &data, &marker_size,
                                 marker, size)) {
@@ -10672,44 +10676,44 @@ static int ParseEXRHeader(HeaderInfo *info, bool *empty_header,
 
   // Check if required attributes exist
   {
-    std::stringstream ss_err;
+    jo_stringstream ss_err;
 
     if (!has_compression) {
       ss_err << "\"compression\" attribute not found in the header."
-             << std::endl;
+             << jo_endl;
     }
 
     if (!has_channels) {
-      ss_err << "\"channels\" attribute not found in the header." << std::endl;
+      ss_err << "\"channels\" attribute not found in the header." << jo_endl;
     }
 
     if (!has_line_order) {
-      ss_err << "\"lineOrder\" attribute not found in the header." << std::endl;
+      ss_err << "\"lineOrder\" attribute not found in the header." << jo_endl;
     }
 
     if (!has_display_window) {
       ss_err << "\"displayWindow\" attribute not found in the header."
-             << std::endl;
+             << jo_endl;
     }
 
     if (!has_data_window) {
       ss_err << "\"dataWindow\" attribute not found in the header or invalid."
-             << std::endl;
+             << jo_endl;
     }
 
     if (!has_pixel_aspect_ratio) {
       ss_err << "\"pixelAspectRatio\" attribute not found in the header."
-             << std::endl;
+             << jo_endl;
     }
 
     if (!has_screen_window_width) {
       ss_err << "\"screenWindowWidth\" attribute not found in the header."
-             << std::endl;
+             << jo_endl;
     }
 
     if (!has_screen_window_center) {
       ss_err << "\"screenWindowCenter\" attribute not found in the header."
-             << std::endl;
+             << jo_endl;
     }
 
     if (!(ss_err.str().empty())) {
@@ -10810,9 +10814,9 @@ static void ConvertHeader(EXRHeader *exr_header, const HeaderInfo &info) {
 }
 
 static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
-                       const std::vector<tinyexr::tinyexr_uint64> &offsets,
+                       const jo_vector<tinyexr::tinyexr_uint64> &offsets,
                        const unsigned char *head, const size_t size,
-                       std::string *err) {
+                       jo_string *err) {
   int num_channels = exr_header->num_channels;
 
   int num_scanline_blocks = 1;
@@ -10829,9 +10833,9 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
 
   if ((data_width < 0) || (data_height < 0)) {
     if (err) {
-      std::stringstream ss;
+      jo_stringstream ss;
       ss << "Invalid data width or data height: " << data_width << ", "
-         << data_height << std::endl;
+         << data_height << jo_endl;
       (*err) += ss.str();
     }
     return TINYEXR_ERROR_INVALID_DATA;
@@ -10842,10 +10846,10 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
     const int threshold = 1024 * 8192;  // heuristics
     if ((data_width > threshold) || (data_height > threshold)) {
       if (err) {
-        std::stringstream ss;
+        jo_stringstream ss;
         ss << "data_with or data_height too large. data_width: " << data_width
            << ", "
-           << "data_height = " << data_height << std::endl;
+           << "data_height = " << data_height << jo_endl;
         (*err) += ss.str();
       }
       return TINYEXR_ERROR_INVALID_DATA;
@@ -10854,7 +10858,7 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
 
   size_t num_blocks = offsets.size();
 
-  std::vector<size_t> channel_offset_list;
+  jo_vector<size_t> channel_offset_list;
   int pixel_data_size = 0;
   size_t channel_offset = 0;
   if (!tinyexr::ComputeChannelLayout(&channel_offset_list, &pixel_data_size,
@@ -10872,7 +10876,7 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
     // value check
     if (exr_header->tile_size_x < 0) {
       if (err) {
-        std::stringstream ss;
+        jo_stringstream ss;
         ss << "Invalid tile size x : " << exr_header->tile_size_x << "\n";
         (*err) += ss.str();
       }
@@ -10881,7 +10885,7 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
 
     if (exr_header->tile_size_y < 0) {
       if (err) {
-        std::stringstream ss;
+        jo_stringstream ss;
         ss << "Invalid tile size y : " << exr_header->tile_size_y << "\n";
         (*err) += ss.str();
       }
@@ -10897,10 +10901,10 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
 
 #if (__cplusplus > 199711L) && (TINYEXR_USE_THREAD > 0)
 
-    std::vector<std::thread> workers;
+    jo_vector<std::thread> workers;
     std::atomic<size_t> tile_count(0);
 
-    int num_threads = std::max(1, int(std::thread::hardware_concurrency()));
+    int num_threads = jo_max(1, int(std::thread::hardware_concurrency()));
     if (num_threads > int(num_tiles)) {
       num_threads = int(num_tiles);
     }
@@ -11029,10 +11033,10 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
         sizeof(void *) == 8 ? (total_data_len >= 0x4000000000) : false;
     if ((total_data_len == 0) || total_data_len_overflown) {
       if (err) {
-        std::stringstream ss;
+        jo_stringstream ss;
         ss << "Image data size is zero or too large: width = " << data_width
            << ", height = " << data_height << ", channels = " << num_channels
-           << std::endl;
+           << jo_endl;
         (*err) += ss.str();
       }
       return TINYEXR_ERROR_INVALID_DATA;
@@ -11043,10 +11047,10 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
         data_width, data_height);
 
 #if (__cplusplus > 199711L) && (TINYEXR_USE_THREAD > 0)
-    std::vector<std::thread> workers;
+    jo_vector<std::thread> workers;
     std::atomic<int> y_count(0);
 
-    int num_threads = std::max(1, int(std::thread::hardware_concurrency()));
+    int num_threads = jo_max(1, int(std::thread::hardware_concurrency()));
     if (num_threads > int(num_blocks)) {
       num_threads = int(num_blocks);
     }
@@ -11097,7 +11101,7 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
               invalid_data = true;
             } else {
               // line_no may be negative.
-              int end_line_no = (std::min)(line_no + num_scanline_blocks,
+              int end_line_no = (jo_min)(line_no + num_scanline_blocks,
                                            (exr_header->data_window[3] + 1));
 
               int num_lines = end_line_no - line_no;
@@ -11114,9 +11118,9 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
                 tinyexr_int64 lno =
                     static_cast<tinyexr_int64>(line_no) -
                     static_cast<tinyexr_int64>(exr_header->data_window[1]);
-                if (lno > std::numeric_limits<int>::max()) {
+                if (lno > jo_numeric_limits<int>::max()) {
                   line_no = -1;  // invalid
-                } else if (lno < -std::numeric_limits<int>::max()) {
+                } else if (lno < -jo_numeric_limits<int>::max()) {
                   line_no = -1;  // invalid
                 } else {
                   line_no -= exr_header->data_window[1];
@@ -11158,7 +11162,7 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
 
   if (invalid_data) {
     if (err) {
-      std::stringstream ss;
+      jo_stringstream ss;
       (*err) += "Invalid data found when decoding pixels.\n";
     }
     return TINYEXR_ERROR_INVALID_DATA;
@@ -11182,7 +11186,7 @@ static int DecodeChunk(EXRImage *exr_image, const EXRHeader *exr_header,
 }
 
 static bool ReconstructLineOffsets(
-    std::vector<tinyexr::tinyexr_uint64> *offsets, size_t n,
+    jo_vector<tinyexr::tinyexr_uint64> *offsets, size_t n,
     const unsigned char *head, const unsigned char *marker, const size_t size) {
   assert(head < marker);
   assert(offsets->size() == n);
@@ -11235,7 +11239,7 @@ static int DecodeEXRImage(EXRImage *exr_image, const EXRHeader *exr_header,
   }
 
   int data_width = exr_header->data_window[2] - exr_header->data_window[0];
-  if (data_width >= std::numeric_limits<int>::max()) {
+  if (data_width >= jo_numeric_limits<int>::max()) {
     // Issue 63
     tinyexr::SetErrorMessage("Invalid data width value", err);
     return TINYEXR_ERROR_INVALID_DATA;
@@ -11243,7 +11247,7 @@ static int DecodeEXRImage(EXRImage *exr_image, const EXRHeader *exr_header,
   data_width++;
 
   int data_height = exr_header->data_window[3] - exr_header->data_window[1];
-  if (data_height >= std::numeric_limits<int>::max()) {
+  if (data_height >= jo_numeric_limits<int>::max()) {
     tinyexr::SetErrorMessage("Invalid data height value", err);
     return TINYEXR_ERROR_INVALID_DATA;
   }
@@ -11298,7 +11302,7 @@ static int DecodeEXRImage(EXRImage *exr_image, const EXRHeader *exr_header,
     }
   }
 
-  std::vector<tinyexr::tinyexr_uint64> offsets(num_blocks);
+  jo_vector<tinyexr::tinyexr_uint64> offsets(num_blocks);
 
   for (size_t y = 0; y < num_blocks; y++) {
     tinyexr::tinyexr_uint64 offset;
@@ -11325,7 +11329,7 @@ static int DecodeEXRImage(EXRImage *exr_image, const EXRHeader *exr_header,
       // TODO(syoyo) Report as warning?
       // if (err) {
       //  stringstream ss;
-      //  ss << "Incomplete lineOffsets." << std::endl;
+      //  ss << "Incomplete lineOffsets." << jo_endl;
       //  (*err) += ss.str();
       //}
       bool ret =
@@ -11342,7 +11346,7 @@ static int DecodeEXRImage(EXRImage *exr_image, const EXRHeader *exr_header,
   }
 
   {
-    std::string e;
+    jo_string e;
     int ret = DecodeChunk(exr_image, exr_header, offsets, head, size, &e);
 
     if (ret != TINYEXR_SUCCESS) {
@@ -11371,44 +11375,45 @@ static int DecodeEXRImage(EXRImage *exr_image, const EXRHeader *exr_header,
   }
 }
 
-static void GetLayers(const EXRHeader& exr_header, std::vector<std::string>& layer_names) {
+static void GetLayers(const EXRHeader& exr_header, jo_vector<jo_string>& layer_names) {
   // Naive implementation
   // Group channels by layers
   // go over all channel names, split by periods
   // collect unique names
   layer_names.clear();
   for (int c = 0; c < exr_header.num_channels; c++) {
-    std::string full_name(exr_header.channels[c].name);
+    jo_string full_name(exr_header.channels[c].name);
     const size_t pos = full_name.find_last_of('.');
-    if (pos != std::string::npos && pos != 0 && pos + 1 < full_name.size()) {
+    if (pos != jo_string_npos && pos != 0 && pos + 1 < full_name.size()) {
       full_name.erase(pos);
-      if (std::find(layer_names.begin(), layer_names.end(), full_name) == layer_names.end())
+      if (jo_find(layer_names.begin(), layer_names.end(), full_name) == layer_names.end())
         layer_names.push_back(full_name);
     }
   }
 }
 
 struct LayerChannel {
-  explicit LayerChannel (size_t i, std::string n)
+  LayerChannel() : index(), name() {}
+  explicit LayerChannel (size_t i, jo_string n)
     : index(i)
     , name(n)
   {}
   size_t index;
-  std::string name;
+  jo_string name;
 };
 
-static void ChannelsInLayer(const EXRHeader& exr_header, const std::string layer_name, std::vector<LayerChannel>& channels) {
+static void ChannelsInLayer(const EXRHeader& exr_header, const jo_string layer_name, jo_vector<LayerChannel>& channels) {
   channels.clear();
   for (int c = 0; c < exr_header.num_channels; c++) {
-    std::string ch_name(exr_header.channels[c].name);
+    jo_string ch_name(exr_header.channels[c].name);
     if (layer_name.empty()) {
       const size_t pos = ch_name.find_last_of('.');
-      if (pos != std::string::npos && pos < ch_name.size()) {
+      if (pos != jo_string_npos && pos < ch_name.size()) {
         ch_name = ch_name.substr(pos + 1);
       }
     } else {
       const size_t pos = ch_name.find(layer_name + '.');
-      if (pos == std::string::npos)
+      if (pos == jo_string_npos)
         continue;
       if (pos == 0) {
         ch_name = ch_name.substr(layer_name.size() + 1);
@@ -11447,7 +11452,7 @@ int EXRLayers(const char *filename, const char **layer_names[], int *num_layers,
     return ret;
   }
 
-  std::vector<std::string> layer_vec;
+  jo_vector<jo_string> layer_vec;
   tinyexr::GetLayers(exr_header, layer_vec);
 
   (*num_layers) = int(layer_vec.size());
@@ -11486,7 +11491,7 @@ int LoadEXRWithLayer(float **out_rgba, int *width, int *height, const char *file
   {
     int ret = ParseEXRVersionFromFile(&exr_version, filename);
     if (ret != TINYEXR_SUCCESS) {
-      std::stringstream ss;
+      jo_stringstream ss;
       ss << "Failed to open EXR file or read version info from EXR file. code(" << ret << ")";
       tinyexr::SetErrorMessage(ss.str(), err);
       return ret;
@@ -11530,11 +11535,11 @@ int LoadEXRWithLayer(float **out_rgba, int *width, int *height, const char *file
   int idxB = -1;
   int idxA = -1;
 
-  std::vector<std::string> layer_names;
+  jo_vector<jo_string> layer_names;
   tinyexr::GetLayers(exr_header, layer_names);
 
-  std::vector<tinyexr::LayerChannel> channels;
-  tinyexr::ChannelsInLayer(exr_header, layername == NULL ? "" : std::string(layername), channels);
+  jo_vector<tinyexr::LayerChannel> channels;
+  tinyexr::ChannelsInLayer(exr_header, layername == NULL ? "" : jo_string(layername), channels);
 
   if (channels.size() < 1) {
     tinyexr::SetErrorMessage("Layer Not Found", err);
@@ -11732,7 +11737,7 @@ int ParseEXRHeaderFromMemory(EXRHeader *exr_header, const EXRVersion *version,
   tinyexr::HeaderInfo info;
   info.clear();
 
-  std::string err_str;
+  jo_string err_str;
   int ret = ParseEXRHeader(&info, NULL, version, &err_str, marker, marker_size);
 
   if (ret != TINYEXR_SUCCESS) {
@@ -11765,7 +11770,7 @@ int LoadEXRFromMemory(float **out_rgba, int *width, int *height,
 
   int ret = ParseEXRVersionFromMemory(&exr_version, memory, size);
   if (ret != TINYEXR_SUCCESS) {
-    std::stringstream ss;
+    jo_stringstream ss;
     ss << "Failed to parse EXR version. code(" << ret << ")";
     tinyexr::SetErrorMessage(ss.str(), err);
     return ret;
@@ -11954,7 +11959,7 @@ int LoadEXRImageFromFile(EXRImage *exr_image, const EXRHeader *exr_header,
   FILE *fp = fopen(filename, "rb");
 #endif
   if (!fp) {
-    tinyexr::SetErrorMessage("Cannot read file " + std::string(filename), err);
+    tinyexr::SetErrorMessage("Cannot read file " + jo_string(filename), err);
     return TINYEXR_ERROR_CANT_OPEN_FILE;
   }
 
@@ -11965,12 +11970,12 @@ int LoadEXRImageFromFile(EXRImage *exr_image, const EXRHeader *exr_header,
   fseek(fp, 0, SEEK_SET);
 
   if (filesize < 16) {
-    tinyexr::SetErrorMessage("File size too short " + std::string(filename),
+    tinyexr::SetErrorMessage("File size too short " + jo_string(filename),
                              err);
     return TINYEXR_ERROR_INVALID_FILE;
   }
 
-  std::vector<unsigned char> buf(filesize);  // @todo { use mmap }
+  jo_vector<unsigned char> buf(filesize);  // @todo { use mmap }
   {
     size_t ret;
     ret = fread(&buf[0], 1, filesize, fp);
@@ -12041,17 +12046,17 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
   }
 #endif
 
-  std::vector<unsigned char> memory;
+  jo_vector<unsigned char> memory;
 
   // Header
   {
-    const char header[] = {0x76, 0x2f, 0x31, 0x01};
+    const unsigned char header[] = {0x76, 0x2f, 0x31, 0x01};
     memory.insert(memory.end(), header, header + 4);
   }
 
   // Version, scanline.
   {
-    char marker[] = {2, 0, 0, 0};
+    unsigned char marker[] = {2, 0, 0, 0};
     /* @todo
     if (exr_header->tiled) {
       marker[1] |= 0x2;
@@ -12079,9 +12084,9 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
   }
 
   // Write attributes.
-  std::vector<tinyexr::ChannelInfo> channels;
+  jo_vector<tinyexr::ChannelInfo> channels;
   {
-    std::vector<unsigned char> data;
+    jo_vector<unsigned char> data;
 
     for (int c = 0; c < exr_header->num_channels; c++) {
       tinyexr::ChannelInfo info;
@@ -12089,7 +12094,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
       info.pixel_type = exr_header->requested_pixel_types[c];
       info.x_sampling = 1;
       info.y_sampling = 1;
-      info.name = std::string(exr_header->channels[c].name);
+      info.name = jo_string(exr_header->channels[c].name);
       channels.push_back(info);
     }
 
@@ -12174,7 +12179,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
     num_blocks++;
   }
 
-  std::vector<tinyexr::tinyexr_uint64> offsets(static_cast<size_t>(num_blocks));
+  jo_vector<tinyexr::tinyexr_uint64> offsets(static_cast<size_t>(num_blocks));
 
   size_t headerSize = memory.size();
   tinyexr::tinyexr_uint64 offset =
@@ -12183,9 +12188,9 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
           sizeof(
               tinyexr::tinyexr_int64);  // sizeof(header) + sizeof(offsetTable)
 
-  std::vector<std::vector<unsigned char> > data_list(
+  jo_vector<jo_vector<unsigned char> > data_list(
       static_cast<size_t>(num_blocks));
-  std::vector<size_t> channel_offset_list(
+  jo_vector<size_t> channel_offset_list(
       static_cast<size_t>(exr_header->num_channels));
 
   int pixel_data_size = 0;
@@ -12235,10 +12240,10 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
   for (int i = 0; i < num_blocks; i++) {
     size_t ii = static_cast<size_t>(i);
     int start_y = num_scanlines * i;
-    int endY = (std::min)(num_scanlines * (i + 1), exr_image->height);
+    int endY = (jo_min)(num_scanlines * (i + 1), exr_image->height);
     int h = endY - start_y;
 
-    std::vector<unsigned char> buf(
+    jo_vector<unsigned char> buf(
         static_cast<size_t>(exr_image->width * h * pixel_data_size));
 
     for (size_t c = 0; c < static_cast<size_t>(exr_header->num_channels); c++) {
@@ -12353,7 +12358,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
       // 4 byte: scan line
       // 4 byte: data size
       // ~     : pixel data(uncompressed)
-      std::vector<unsigned char> header(8);
+      jo_vector<unsigned char> header(8);
       unsigned int data_len = static_cast<unsigned int>(buf.size());
       memcpy(&header.at(0), &start_y, sizeof(int));
       memcpy(&header.at(4), &data_len, sizeof(unsigned int));
@@ -12368,10 +12373,10 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
     } else if ((exr_header->compression_type == TINYEXR_COMPRESSIONTYPE_ZIPS) ||
                (exr_header->compression_type == TINYEXR_COMPRESSIONTYPE_ZIP)) {
 #if TINYEXR_USE_MINIZ
-      std::vector<unsigned char> block(tinyexr::miniz::mz_compressBound(
+      jo_vector<unsigned char> block(tinyexr::miniz::mz_compressBound(
           static_cast<unsigned long>(buf.size())));
 #else
-      std::vector<unsigned char> block(
+      jo_vector<unsigned char> block(
           compressBound(static_cast<uLong>(buf.size())));
 #endif
       tinyexr::tinyexr_uint64 outSize = block.size();
@@ -12383,7 +12388,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
       // 4 byte: scan line
       // 4 byte: data size
       // ~     : pixel data(compressed)
-      std::vector<unsigned char> header(8);
+      jo_vector<unsigned char> header(8);
       unsigned int data_len = static_cast<unsigned int>(outSize);  // truncate
       memcpy(&header.at(0), &start_y, sizeof(int));
       memcpy(&header.at(4), &data_len, sizeof(unsigned int));
@@ -12397,7 +12402,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
 
     } else if (exr_header->compression_type == TINYEXR_COMPRESSIONTYPE_RLE) {
       // (buf.size() * 3) / 2 would be enough.
-      std::vector<unsigned char> block((buf.size() * 3) / 2);
+      jo_vector<unsigned char> block((buf.size() * 3) / 2);
 
       tinyexr::tinyexr_uint64 outSize = block.size();
 
@@ -12408,7 +12413,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
       // 4 byte: scan line
       // 4 byte: data size
       // ~     : pixel data(compressed)
-      std::vector<unsigned char> header(8);
+      jo_vector<unsigned char> header(8);
       unsigned int data_len = static_cast<unsigned int>(outSize);  // truncate
       memcpy(&header.at(0), &start_y, sizeof(int));
       memcpy(&header.at(4), &data_len, sizeof(unsigned int));
@@ -12426,7 +12431,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
           8192 + static_cast<unsigned int>(
                      2 * static_cast<unsigned int>(
                              buf.size()));  // @fixme { compute good bound. }
-      std::vector<unsigned char> block(bufLen);
+      jo_vector<unsigned char> block(bufLen);
       unsigned int outSize = static_cast<unsigned int>(block.size());
 
       CompressPiz(&block.at(0), &outSize,
@@ -12436,7 +12441,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
       // 4 byte: scan line
       // 4 byte: data size
       // ~     : pixel data(compressed)
-      std::vector<unsigned char> header(8);
+      jo_vector<unsigned char> header(8);
       unsigned int data_len = outSize;
       memcpy(&header.at(0), &start_y, sizeof(int));
       memcpy(&header.at(4), &data_len, sizeof(unsigned int));
@@ -12453,7 +12458,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
 #endif
     } else if (exr_header->compression_type == TINYEXR_COMPRESSIONTYPE_ZFP) {
 #if TINYEXR_USE_ZFP
-      std::vector<unsigned char> block;
+      jo_vector<unsigned char> block;
       unsigned int outSize;
 
       tinyexr::CompressZfp(
@@ -12463,7 +12468,7 @@ size_t SaveEXRImageToMemory(const EXRImage *exr_image,
       // 4 byte: scan line
       // 4 byte: data size
       // ~     : pixel data(compressed)
-      std::vector<unsigned char> header(8);
+      jo_vector<unsigned char> header(8);
       unsigned int data_len = outSize;
       memcpy(&header.at(0), &start_y, sizeof(int));
       memcpy(&header.at(4), &data_len, sizeof(unsigned int));
@@ -12581,14 +12586,14 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
   FILE *fp = NULL;
   errno_t errcode = fopen_s(&fp, filename, "rb");
   if ((0 != errcode) || (!fp)) {
-    tinyexr::SetErrorMessage("Cannot read a file " + std::string(filename),
+    tinyexr::SetErrorMessage("Cannot read a file " + jo_string(filename),
                              err);
     return TINYEXR_ERROR_CANT_OPEN_FILE;
   }
 #else
   FILE *fp = fopen(filename, "rb");
   if (!fp) {
-    tinyexr::SetErrorMessage("Cannot read a file " + std::string(filename),
+    tinyexr::SetErrorMessage("Cannot read a file " + jo_string(filename),
                              err);
     return TINYEXR_ERROR_CANT_OPEN_FILE;
   }
@@ -12602,12 +12607,12 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
 
   if (filesize == 0) {
     fclose(fp);
-    tinyexr::SetErrorMessage("File size is zero : " + std::string(filename),
+    tinyexr::SetErrorMessage("File size is zero : " + jo_string(filename),
                              err);
     return TINYEXR_ERROR_INVALID_FILE;
   }
 
-  std::vector<char> buf(filesize);  // @todo { use mmap }
+  jo_vector<char> buf(filesize);  // @todo { use mmap }
   {
     size_t ret;
     ret = fread(&buf[0], 1, filesize, fp);
@@ -12649,7 +12654,7 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
   int num_scanline_blocks = 1;  // 16 for ZIP compression.
   int compression_type = -1;
   int num_channels = -1;
-  std::vector<tinyexr::ChannelInfo> channels;
+  jo_vector<tinyexr::ChannelInfo> channels;
 
   // Read attributes
   size_t size = filesize - tinyexr::kEXRVersionSize;
@@ -12662,13 +12667,13 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
       break;
     }
 
-    std::string attr_name;
-    std::string attr_type;
-    std::vector<unsigned char> data;
+    jo_string attr_name;
+    jo_string attr_type;
+    jo_vector<unsigned char> data;
     size_t marker_size;
     if (!tinyexr::ReadAttribute(&attr_name, &attr_type, &data, &marker_size,
                                 marker, size)) {
-      std::stringstream ss;
+      jo_stringstream ss;
       ss << "Failed to parse attribute\n";
       tinyexr::SetErrorMessage(ss.str(), err);
       return TINYEXR_ERROR_INVALID_DATA;
@@ -12679,7 +12684,7 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
     if (attr_name.compare("compression") == 0) {
       compression_type = data[0];
       if (compression_type > TINYEXR_COMPRESSIONTYPE_PIZ) {
-        std::stringstream ss;
+        jo_stringstream ss;
         ss << "Unsupported compression type : " << compression_type;
         tinyexr::SetErrorMessage(ss.str(), err);
         return TINYEXR_ERROR_UNSUPPORTED_FORMAT;
@@ -12744,7 +12749,7 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
   int data_width = dw - dx + 1;
   int data_height = dh - dy + 1;
 
-  std::vector<float> image(
+  jo_vector<float> image(
       static_cast<size_t>(data_width * data_height * 4));  // 4 = RGBA
 
   // Read offset tables.
@@ -12753,7 +12758,7 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
     num_blocks++;
   }
 
-  std::vector<tinyexr::tinyexr_int64> offsets(static_cast<size_t>(num_blocks));
+  jo_vector<tinyexr::tinyexr_int64> offsets(static_cast<size_t>(num_blocks));
 
   for (size_t y = 0; y < static_cast<size_t>(num_blocks); y++) {
     tinyexr::tinyexr_int64 offset;
@@ -12827,7 +12832,7 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
     tinyexr::swap8(
         reinterpret_cast<tinyexr::tinyexr_uint64 *>(&unpackedSampleDataSize));
 
-    std::vector<int> pixelOffsetTable(static_cast<size_t>(data_width));
+    jo_vector<int> pixelOffsetTable(static_cast<size_t>(data_width));
 
     // decode pixel offset table.
     {
@@ -12846,7 +12851,7 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
       }
     }
 
-    std::vector<unsigned char> sample_data(
+    jo_vector<unsigned char> sample_data(
         static_cast<size_t>(unpackedSampleDataSize));
 
     // decode sample data.
@@ -12865,7 +12870,7 @@ int LoadDeepEXR(DeepImage *deep_image, const char *filename, const char **err) {
 
     // decode sample
     int sampleSize = -1;
-    std::vector<int> channel_offset_list(static_cast<size_t>(num_channels));
+    jo_vector<int> channel_offset_list(static_cast<size_t>(num_channels));
     {
       int channel_offset = 0;
       for (size_t i = 0; i < static_cast<size_t>(num_channels); i++) {
@@ -13061,7 +13066,7 @@ int ParseEXRHeaderFromFile(EXRHeader *exr_header, const EXRVersion *exr_version,
   FILE *fp = fopen(filename, "rb");
 #endif
   if (!fp) {
-    tinyexr::SetErrorMessage("Cannot read file " + std::string(filename), err);
+    tinyexr::SetErrorMessage("Cannot read file " + jo_string(filename), err);
     return TINYEXR_ERROR_CANT_OPEN_FILE;
   }
 
@@ -13071,7 +13076,7 @@ int ParseEXRHeaderFromFile(EXRHeader *exr_header, const EXRVersion *exr_version,
   filesize = static_cast<size_t>(ftell(fp));
   fseek(fp, 0, SEEK_SET);
 
-  std::vector<unsigned char> buf(filesize);  // @todo { use mmap }
+  jo_vector<unsigned char> buf(filesize);  // @todo { use mmap }
   {
     size_t ret;
     ret = fread(&buf[0], 1, filesize, fp);
@@ -13079,7 +13084,7 @@ int ParseEXRHeaderFromFile(EXRHeader *exr_header, const EXRVersion *exr_version,
     fclose(fp);
 
     if (ret != filesize) {
-      tinyexr::SetErrorMessage("fread() error on " + std::string(filename),
+      tinyexr::SetErrorMessage("fread() error on " + jo_string(filename),
                                err);
       return TINYEXR_ERROR_INVALID_FILE;
     }
@@ -13110,13 +13115,13 @@ int ParseEXRMultipartHeaderFromMemory(EXRHeader ***exr_headers,
   const unsigned char *marker = memory + tinyexr::kEXRVersionSize;
   size_t marker_size = size - tinyexr::kEXRVersionSize;
 
-  std::vector<tinyexr::HeaderInfo> infos;
+  jo_vector<tinyexr::HeaderInfo> infos;
 
   for (;;) {
     tinyexr::HeaderInfo info;
     info.clear();
 
-    std::string err_str;
+    jo_string err_str;
     bool empty_header = false;
     int ret = ParseEXRHeader(&info, &empty_header, exr_version, &err_str,
                              marker, marker_size);
@@ -13181,7 +13186,7 @@ int ParseEXRMultipartHeaderFromFile(EXRHeader ***exr_headers, int *num_headers,
   FILE *fp = fopen(filename, "rb");
 #endif
   if (!fp) {
-    tinyexr::SetErrorMessage("Cannot read file " + std::string(filename), err);
+    tinyexr::SetErrorMessage("Cannot read file " + jo_string(filename), err);
     return TINYEXR_ERROR_CANT_OPEN_FILE;
   }
 
@@ -13191,7 +13196,7 @@ int ParseEXRMultipartHeaderFromFile(EXRHeader ***exr_headers, int *num_headers,
   filesize = static_cast<size_t>(ftell(fp));
   fseek(fp, 0, SEEK_SET);
 
-  std::vector<unsigned char> buf(filesize);  // @todo { use mmap }
+  jo_vector<unsigned char> buf(filesize);  // @todo { use mmap }
   {
     size_t ret;
     ret = fread(&buf[0], 1, filesize, fp);
@@ -13341,9 +13346,9 @@ int LoadEXRMultipartImageFromMemory(EXRImage *exr_images,
   //   http://www.openexr.com/openexrfilelayout.pdf
 
   // Load chunk offset table.
-  std::vector<std::vector<tinyexr::tinyexr_uint64> > chunk_offset_table_list;
+  jo_vector<jo_vector<tinyexr::tinyexr_uint64> > chunk_offset_table_list;
   for (size_t i = 0; i < static_cast<size_t>(num_parts); i++) {
-    std::vector<tinyexr::tinyexr_uint64> offset_table(
+    jo_vector<tinyexr::tinyexr_uint64> offset_table(
         static_cast<size_t>(exr_headers[i]->chunk_count));
 
     for (size_t c = 0; c < offset_table.size(); c++) {
@@ -13366,7 +13371,7 @@ int LoadEXRMultipartImageFromMemory(EXRImage *exr_images,
 
   // Decode image.
   for (size_t i = 0; i < static_cast<size_t>(num_parts); i++) {
-    std::vector<tinyexr::tinyexr_uint64> &offset_table =
+    jo_vector<tinyexr::tinyexr_uint64> &offset_table =
         chunk_offset_table_list[i];
 
     // First check 'part number' is identitical to 'i'
@@ -13384,7 +13389,7 @@ int LoadEXRMultipartImageFromMemory(EXRImage *exr_images,
       }
     }
 
-    std::string e;
+    jo_string e;
     int ret = tinyexr::DecodeChunk(&exr_images[i], exr_headers[i], offset_table,
                                    memory, size, &e);
     if (ret != TINYEXR_SUCCESS) {
@@ -13415,7 +13420,7 @@ int LoadEXRMultipartImageFromFile(EXRImage *exr_images,
   FILE *fp = fopen(filename, "rb");
 #endif
   if (!fp) {
-    tinyexr::SetErrorMessage("Cannot read file " + std::string(filename), err);
+    tinyexr::SetErrorMessage("Cannot read file " + jo_string(filename), err);
     return TINYEXR_ERROR_CANT_OPEN_FILE;
   }
 
@@ -13425,7 +13430,7 @@ int LoadEXRMultipartImageFromFile(EXRImage *exr_images,
   filesize = static_cast<size_t>(ftell(fp));
   fseek(fp, 0, SEEK_SET);
 
-  std::vector<unsigned char> buf(filesize);  //  @todo { use mmap }
+  jo_vector<unsigned char> buf(filesize);  //  @todo { use mmap }
   {
     size_t ret;
     ret = fread(&buf[0], 1, filesize, fp);
@@ -13443,8 +13448,8 @@ int SaveEXR(const float *data, int width, int height, int components,
   if ((components == 1) || components == 3 || components == 4) {
     // OK
   } else {
-    std::stringstream ss;
-    ss << "Unsupported component value : " << components << std::endl;
+    jo_stringstream ss;
+    ss << "Unsupported component value : " << components << jo_endl;
 
     tinyexr::SetErrorMessage(ss.str(), err);
     return TINYEXR_ERROR_INVALID_ARGUMENT;
@@ -13465,7 +13470,7 @@ int SaveEXR(const float *data, int width, int height, int components,
 
   image.num_channels = components;
 
-  std::vector<float> images[4];
+  jo_vector<float> images[4];
 
   if (components == 1) {
     images[0].resize(static_cast<size_t>(width * height));
