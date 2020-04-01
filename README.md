@@ -1,4 +1,4 @@
-# Tiny OpenEXR image library.
+# Tiny OpenEXR image library. Modified to not use c++std libraries for portability/binary compat.
 
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/syoyo/tinyexr.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/syoyo/tinyexr/alerts/)
 
