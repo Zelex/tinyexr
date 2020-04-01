@@ -7,6 +7,15 @@
 #include <malloc.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
+
+#ifdef _MSC_VER
+#define jo_strdup _strdup
+#pragma warning(push)
+#pragma warning(disable : 4345)
+#else
+#define jo_strdup strdup
+#endif
 
 // 
 // Simple C++std replacements...
@@ -16,21 +25,21 @@
 template<typename T> struct jo_numeric_limits;
 
 template<> struct jo_numeric_limits<int> {
-    static int max() { return +2147483647; }
-    static int min() { return -2147483648; }
+    static int max() { return INT_MAX; }
+    static int min() { return INT_MIN; }
 };
 
 #define jo_endl ("\n")
-#define jo_string_npos (-1)
+#define jo_string_npos ((size_t)(-1))
 
 struct jo_string {
     char *str;
     
-    jo_string() { str = strdup(""); }
-    jo_string(const char *ss) { str = strdup(ss); }
-    jo_string(char c) { str = strdup(" "); str[0] = c; }
-    jo_string(const jo_string *other) { str = strdup(other->str); }
-    jo_string(const jo_string &other) { str = strdup(other.str); }
+    jo_string() { str = jo_strdup(""); }
+    jo_string(const char *ss) { str = jo_strdup(ss); }
+    jo_string(char c) { str = jo_strdup(" "); str[0] = c; }
+    jo_string(const jo_string *other) { str = jo_strdup(other->str); }
+    jo_string(const jo_string &other) { str = jo_strdup(other.str); }
     jo_string(const char *a, size_t size) {
         str = (char*)malloc(size+1);
         memcpy(str, a, size);
@@ -55,27 +64,30 @@ struct jo_string {
     size_t length() const { return strlen(str); }
 
     jo_string &operator=(const char *s) {
-        char *tmp = strdup(s);
+        char *tmp = jo_strdup(s);
         free(str);
         str = tmp;
         return *this;
     }
 
     jo_string &operator=(const jo_string &s) {
-        char *tmp = strdup(s.str);
+        char *tmp = jo_strdup(s.str);
         free(str);
         str = tmp;
         return *this;
     }
 
     jo_string &operator+=(const char *s) {
-        char *new_str = (char*)realloc(str, strlen(str) + strlen(s) + 1);
+        size_t l0 = strlen(str);
+        size_t l1 = strlen(s);
+        char *new_str = (char*)realloc(str, l0 + l1 + 1);
         if(!new_str) {
             // malloc failed!
             return *this;
         }
         str = new_str;
-        strcat(str, s);
+        memcpy(str+l0, s, l1);
+        str[l0+l1] = 0;
         return *this;
     }
     jo_string &operator+=(const jo_string &s) { *this += s.c_str(); return *this; }
@@ -143,7 +155,11 @@ struct jo_stringstream {
 
     jo_stringstream &operator<<(int val) {
         char tmp[33];
+#ifdef _MSC_VER
+        sprintf_s(tmp, "%i", val);
+#else
         sprintf(tmp, "%i", val);
+#endif
         s += tmp;
         return *this;
     }
@@ -158,7 +174,7 @@ template<typename T> static inline T jo_min(T a, T b) { return a < b ? a : b; }
 template<typename T> static inline T jo_max(T a, T b) { return a > b ? a : b; }
 
 #ifndef __PLACEMENT_NEW_INLINE
-inline void *operator new(size_t s, void *p) { return p; }
+inline void *operator new(size_t, void *p) { return p; }
 #endif
 
 template<typename T>
@@ -288,8 +304,8 @@ struct jo_vector {
 template<typename T, typename TT>
 void jo_sift_down(T *begin, T *end, size_t root, TT cmp) {
     ptrdiff_t n = end - begin;
-    size_t parent = 0;
-    size_t child = 2 * parent + 1;
+    ptrdiff_t parent = root;
+    ptrdiff_t child = 2 * parent + 1;
     while (child < n) {
         if (cmp(begin[child], begin[child + 1]) && child + 1 < n) {
             child++;
@@ -308,7 +324,7 @@ void jo_sift_down(T *begin, T *end, size_t root, TT cmp) {
 }
 
 template<typename T, typename TT>
-void jo_sift_up(T *begin, T *end, size_t child, TT cmp) {
+void jo_sift_up(T *begin, size_t child, TT cmp) {
    	size_t parent = (child - 1) >> 1;
 	while (child > 0) {
 		if(!cmp(begin[child], begin[parent])) {
@@ -353,7 +369,7 @@ void jo_push_heap(T *begin, T *end, TT cmp) {
     if(n <= 1) {
         return; // nothing to do...
     }
-    jo_sift_up(begin, end, n - 1, cmp);
+    jo_sift_up(begin, n - 1, cmp);
 }
 
 template<typename T, typename TT>
@@ -381,6 +397,10 @@ T *jo_find(T *begin, T *end, const T &needle) {
     }
     return end;
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif // JO_STDCPP
 
